@@ -5032,6 +5032,11 @@ sub watch_server {
       [ qr/You have an error in your SQL/         => 'refetch_relay_log' ],
       [ qr/Could not parse relay log event entry/ => 'refetch_relay_log' ],
       [ qr/Incorrect key file for table/          => 'repair_table'      ],
+      [ qr/Delete_rows event on table/ => ($have_gtid ? 'skip_gtid' : 'skip') ],
+      [ qr/Update_rows event on table/ => ($have_gtid ? 'skip_gtid' : 'skip') ],
+      [ qr/Unknown table/   => ($have_gtid ? 'skip_gtid' : 'skip') ],
+      [ qr/Unknown column/  => ($have_gtid ? 'skip_gtid' : 'skip') ],
+      [ qr/Duplicate entry/ => ($have_gtid ? 'skip_gtid' : 'skip') ],
       # This must be the last one.  It's a catch-all rule: skip and restart.
       [ qr/./ => ($have_gtid ? 'skip_gtid' : 'skip')                     ],
    );
@@ -5058,7 +5063,7 @@ sub watch_server {
          my ( $stat, $dbh ) = @_;
          my $set_skip = $dbh->prepare("SET GLOBAL SQL_SLAVE_SKIP_COUNTER = "   
                           . $o->get('skip-count'));
-         $set_skip->execute();
+         $set_skip->execute()
       },
       skip_gtid => sub {
          my ( $stat, $dbh ) = @_;
