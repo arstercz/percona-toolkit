@@ -5063,7 +5063,7 @@ sub watch_server {
          my ( $stat, $dbh ) = @_;
          my $set_skip = $dbh->prepare("SET GLOBAL SQL_SLAVE_SKIP_COUNTER = "   
                           . $o->get('skip-count'));
-         $set_skip->execute()
+         $set_skip->execute();
       },
       skip_gtid => sub {
          my ( $stat, $dbh ) = @_;
