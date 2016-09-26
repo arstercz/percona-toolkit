@@ -4622,7 +4622,7 @@ sub main {
    my $sep                     = $o->get('tab') ? "\t" : ' ';
    my $last_fingerprint        = '';
    my $parse_deadlocks_options = {
-      'server'     => $src->dsn->{h} || $src->{hostname},
+      'server'     => ($src->dsn->{h} || $src->{hostname}) . ":" . $src->dsn->{P},
       'numeric-ip' => $o->got('numeric-ip'),
    };
 
