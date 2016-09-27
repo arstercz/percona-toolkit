@@ -4851,7 +4851,8 @@ sub parse_deadlocks {
                =~ m{^(RECORD|TABLE) LOCKS? (?:space id \d+ page no \d+ n bits \d+ index `?$n`? of )?table `$n(?:/|`\.`)$n`.*?trx id $t lock.mode (\S+)}m;
             if ( $hash->{txn_id} ) {
                my ( $high, $low ) = $hash->{txn_id} =~ m/^(\d+) (\d+)$/;
-               $hash->{txn_id} = $high ? ( $low + ($high << 32) ) : hex($low);
+               no warnings 'portable';
+               $hash->{txn_id} = $high ? ( $low + ($high << 32) ) : hex($hash->{txn_id});
             }
          }
       }
