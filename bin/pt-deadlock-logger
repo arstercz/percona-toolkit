@@ -4845,13 +4845,13 @@ sub parse_deadlocks {
       else {
          # Prefer information about locks waited-for over locks-held.
          if ( $what eq 'WAITING FOR THIS LOCK TO BE GRANTED' || !$hash->{lock_type} ) {
-            $hash->{wait_hold} = $what eq 'WAITING FOR THIS LOCK TO BE GRANTED' ? 'w' : 'h';
+            $hash->{wait_hold} .= $what eq 'WAITING FOR THIS LOCK TO BE GRANTED' ? 'w' : 'h';
             @{$hash}{ qw(lock_type idx db tbl txn_id lock_mode) }
                = $body
                =~ m{^(RECORD|TABLE) LOCKS? (?:space id \d+ page no \d+ n bits \d+ index `?$n`? of )?table `$n(?:/|`\.`)$n`.*?trx id $t lock.mode (\S+)}m;
             if ( $hash->{txn_id} ) {
                my ( $high, $low ) = $hash->{txn_id} =~ m/^(\d+) (\d+)$/;
-               $hash->{txn_id} = $high ? ( $low + ($high << 32) ) : $low;
+               $hash->{txn_id} = $high ? ( $low + ($high << 32) ) : hex($low);
             }
          }
       }
@@ -5269,7 +5269,7 @@ information pt-deadlock-logger can extract about deadlocks:
 MAGIC_dest_table
 
  CREATE TABLE deadlocks (
-   server char(20) NOT NULL,
+   server char(30) NOT NULL,
    ts timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
    thread int unsigned NOT NULL,
    txn_id bigint unsigned NOT NULL,
@@ -5281,11 +5281,12 @@ MAGIC_dest_table
    tbl char(64) NOT NULL,
    idx char(64) NOT NULL,
    lock_type char(16) NOT NULL,
-   lock_mode char(1) NOT NULL,
-   wait_hold char(1) NOT NULL,
+   lock_mode varchar(20) NOT NULL,
+   wait_hold varchar(3) NOT NULL,
    victim tinyint unsigned NOT NULL,
    query text NOT NULL,
-   PRIMARY KEY  (server,ts,thread)
+   PRIMARY KEY  (server,ts,thread),
+   KEY `idx_ts` (`ts`)
  ) ENGINE=InnoDB
 
 If you use L<"--columns">, you can omit whichever columns you don't want to
