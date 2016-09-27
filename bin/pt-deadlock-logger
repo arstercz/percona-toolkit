@@ -4715,6 +4715,7 @@ sub main {
                   sort { $a->{thread} <=> $b->{thread} } values %txns
                ) {
                   $txn->{query} =~ s/\s+/ /g;
+                  binmode STDOUT, ':utf8';
                   print join($sep, map { $txn->{$_} } @cols), "\n";
                }
             }
