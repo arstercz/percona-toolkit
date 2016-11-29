@@ -786,6 +786,9 @@ CMD_SYSCTL="${CMD_SYSCTL:-"$(_which sysctl)"}"
 CMD_TCPDUMP="${CMD_TCPDUMP:-"$(_which tcpdump)"}"
 CMD_VMSTAT="${CMD_VMSTAT:-"$(_which vmstat)"}"
 CMD_DMESG="${CMD_DMESG:-"$(_which dmesg)"}"
+CMD_CAT="${CMD_CAT:-"$(_which cat)"}"
+CMD_TOP="${CMD_TOP:-"$(_which top)"}"
+CMD_NUMA="${CMD_NUMA:-"$(_which numactl)"}"
 
 [ -z "$CMD_SYSCTL" -a -x "/sbin/sysctl" ] && CMD_SYSCTL="/sbin/sysctl"
 
@@ -794,6 +797,10 @@ collect() {
    local p="$2"  # prefix for each result file
 
    local mysqld_pid=$(_pidof mysqld | awk '{print $1; exit;}')
+   local mysqld_pid_file=$($CMD_MYSQL $EXT_ARGV -Bse 'SHOW GLOBAL VARIABLES LIKE "pid_file"')
+   if [ -e "$mysqld_pid_file" ]; then
+      mysqld_pid=$($CMD_CAT $mysqld_pid_file | awk '{print $2; exit;}')
+   fi
 
    if [ "$CMD_PMAP" -a "$mysqld_pid" ]; then
       if $CMD_PMAP --help 2>&1 | grep -- -x >/dev/null 2>&1 ; then
@@ -838,7 +845,6 @@ collect() {
       local mutex="SHOW MUTEX STATUS"
    fi
    innodb_status 1
-   tokudb_status 1
    $CMD_MYSQL $EXT_ARGV -e "$mutex" >> "$d/$p-mutex-status1" &
    open_tables                      >> "$d/$p-opentables1"   &
 
@@ -863,7 +869,6 @@ collect() {
    fi
 
    ps -eaf  >> "$d/$p-ps"  &
-   top -bn1 >> "$d/$p-top" &
 
    [ "$mysqld_pid" ] && _lsof $mysqld_pid >> "$d/$p-lsof" &
 
@@ -878,6 +883,11 @@ collect() {
       $CMD_DMESG  | perl -ne 'm/\[\s*(\d+)\./; if ($1 > '${START_TIME}') { print }' >> "$d/$p-dmesg" & 
    fi
 
+   if [ "$CMD_NUMA" ]; then
+      $CMD_NUMA --show >> "$d/$p-numactl"
+      $CMD_NUMA --hardware >> "$d/$p-numactl"
+   fi
+
    local cnt=$(($OPT_RUN_TIME / $OPT_SLEEP_COLLECT))
    if [ "$CMD_VMSTAT" ]; then
       $CMD_VMSTAT $OPT_SLEEP_COLLECT $cnt >> "$d/$p-vmstat" &
@@ -890,6 +900,9 @@ collect() {
    if [ "$CMD_MPSTAT" ]; then
       $CMD_MPSTAT -P ALL $OPT_SLEEP_COLLECT $cnt >> "$d/$p-mpstat" &
       $CMD_MPSTAT -P ALL $OPT_RUN_TIME 1 >> "$d/$p-mpstat-overall" &
+   fi
+   if [ "$CMD_TOP" ]; then
+      $CMD_TOP -b -n $cnt -d 1 >> "$d/$p-top" &
    fi
 
 
@@ -989,7 +1002,6 @@ collect() {
    fi
 
    innodb_status 2
-   tokudb_status 2
    $CMD_MYSQL $EXT_ARGV -e "$mutex" >> "$d/$p-mutex-status2" &
    open_tables                      >> "$d/$p-opentables2"   &
 
@@ -1055,13 +1067,6 @@ transactions() {
    $CMD_MYSQL $EXT_ARGV -e "SELECT SQL_NO_CACHE * FROM INFORMATION_SCHEMA.INNODB_TRX\G"
    $CMD_MYSQL $EXT_ARGV -e "SELECT SQL_NO_CACHE * FROM INFORMATION_SCHEMA.INNODB_LOCKS\G"
    $CMD_MYSQL $EXT_ARGV -e "SELECT SQL_NO_CACHE * FROM INFORMATION_SCHEMA.INNODB_LOCK_WAITS\G"
-}
-
-tokudb_status() {
-    local n=$1
-
-    $CMD_MYSQL $EXT_ARGV -e "SHOW ENGINE TOKUDB STATUS\G" \
-      >> "$d/$p-tokudbstatus$n" || rm -f "$d/$p-tokudbstatus$n"
 }
 
 innodb_status() {
@@ -1237,13 +1242,18 @@ purge_samples() {
    local retention_time="$2"
 
    # Delete collect files which more than --retention-time days old.
-   find "$dir" -type f -mtime +$retention_time -exec rm -f '{}' \;
+   # Default OPT_PREFIX pattern
+   pattern="????_??_??_??_??_??-*"
+   if [ "$OPT_PREFIX" ]; then
+       pattern=$OPT_PREFIX
+   fi
+   find "$dir" -warn -name "$pattern" -type f -mtime +$retention_time -exec rm -f '{}' \;
 
    local oprofile_dir="/var/lib/oprofile/samples"
    if [ -d "$oprofile_dir" ]; then
       # "pt_collect_" here needs to match $CMD_OPCONTROL --save=pt_collect_$p
       # in collect().  TODO: fix this
-      find "$oprofile_dir" -depth -type d -name 'pt_collect_*' \
+      find "$oprofile_dir" -warn -depth -type d -name 'pt_collect_*' \
          -mtime +$retention_time -exec rm -rf '{}' \;
    fi
 }
@@ -1902,7 +1912,6 @@ Send an email to these addresses for every L<"--collect">.
 short form: -p; type: string
 
 Password to use when connecting.
-If password contains commas they must be escaped with a backslash: "exam\,ple"
 
 =item --pid
 
