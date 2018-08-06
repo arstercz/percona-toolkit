@@ -9428,6 +9428,13 @@ sub main {
            . "SELECT";
    my $select = join(', ', map { $q->quote($_->{old}) } @common_cols);
 
+   if ($o->get('convert-column') && $o->get('convert-function')) {
+      my $old_def = $q->quote($o->get('convert-column'));
+      my $new_def = $o->get('convert-function')
+                  . '(' . $q->quote($o->get('convert-column')) . ')';
+      $select =~ s/$old_def/$new_def/;
+   }
+
    # The chunk size is auto-adjusted, so use --chunk-size as
    # the initial value, but then save and update the adjusted
    # chunk size in the table data struct.
@@ -10560,6 +10567,14 @@ sub create_triggers {
       = "CREATE TRIGGER `${prefix}_upd` AFTER UPDATE ON $orig_tbl->{name} "
       . "FOR EACH ROW "
       . "REPLACE INTO $new_tbl->{name} ($qcols) VALUES ($new_vals)";
+
+   if ($o->get('convert-column') && $o->get('convert-function')) {
+      my $old_def = "NEW." . $q->quote($o->get('convert-column'));
+      my $new_def = $o->get('convert-function')
+                  . '(' . "NEW." . $q->quote($o->get('convert-column')) . ')';
+      $insert_trigger =~ s/$old_def/$new_def/;
+      $update_trigger =~ s/$old_def/$new_def/;
+   }
 
    my @triggers = (
       ['del', $delete_trigger],
@@ -11831,6 +11846,18 @@ Failures and retries are recorded in the L<"--statistics">.
 short form: -u; type: string
 
 User for login if not current user.
+
+=item --convert-column
+
+type: string
+
+The column will'be converted with the sql function, used with L<"--convert-function">.
+
+=item --convert-function
+
+type: string
+
+The sql function will'be used to L<"--convert-column"> option.
 
 =item --version
 
