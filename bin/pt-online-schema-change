@@ -9433,10 +9433,17 @@ sub main {
    my $select = join(', ', map { $q->quote($_->{old}) } @common_cols);
 
    if ($o->get('convert-column') && $o->get('convert-function')) {
-      my $old_def = $q->quote($o->get('convert-column'));
-      my $new_def = $o->get('convert-function')
-                  . '(' . $q->quote($o->get('convert-column')) . ')';
-      $select =~ s/$old_def/$new_def/;
+      my @convert_cols = split(/,/, $o->get('convert-column'));
+      my @convert_funs = split(/,/, $o->get('convert-function'));
+      foreach my $k ( 0 .. $#convert_cols) {
+          my $old_def = $q->quote($convert_cols[$k]);
+          my $new_def = $convert_funs[$k]
+                      . '(' . $q->quote($convert_cols[$k]) . ')';
+          $select =~ s/$old_def/$new_def/;
+      }
+   }
+   else {
+      die ts("both of the convert-column and convert-function must have value.");
    }
 
    # The chunk size is auto-adjusted, so use --chunk-size as
@@ -9706,6 +9713,7 @@ sub main {
    # --plugin hook
    if ( $plugin && $plugin->can('before_exit') ) {
       $plugin->before_exit(
+         opt_args => $o->{opts},
          exit_status => $exit_status,
       );
    }
@@ -10580,11 +10588,18 @@ sub create_triggers {
       . "REPLACE INTO $new_tbl->{name} ($qcols) VALUES ($new_vals)";
 
    if ($o->get('convert-column') && $o->get('convert-function')) {
-      my $old_def = "NEW." . $q->quote($o->get('convert-column'));
-      my $new_def = $o->get('convert-function')
-                  . '(' . "NEW." . $q->quote($o->get('convert-column')) . ')';
-      $insert_trigger =~ s/$old_def/$new_def/;
-      $update_trigger =~ s/$old_def/$new_def/;
+      my @convert_cols = split(/,/, $o->get('convert-column'));
+      my @convert_funs = split(/,/, $o->get('convert-function'));
+      foreach my $k (0 .. $#convert_cols) {
+          my $old_def = "NEW." . $q->quote($convert_cols[$k]);
+          my $new_def = $convert_funs[$k]
+                      . '(' . "NEW." . $q->quote($convert_cols[$k]) . ')';
+          $insert_trigger =~ s/$old_def/$new_def/;
+          $update_trigger =~ s/$old_def/$new_def/;
+      }
+   }
+   else {
+      die ts("both the convert-column and convert-function must have value.");
    }
 
    my @triggers = (
@@ -11871,13 +11886,18 @@ User for login if not current user.
 
 type: string
 
-The column will'be converted with the sql function, used with L<"--convert-function">.
+The columns will'be converted with the sql function, used with L<"--convert-function">.
+the multiple values are separated by commas, such as `--convert-column ip,name` for the 
+column ip and column name.
 
 =item --convert-function
 
 type: string
 
-The sql function will'be used to L<"--convert-column"> option.
+The sql functions will'be used to L<"--convert-column"> option. the multiple values are 
+separated by commas, respectively correspond to the `--convert-column ip,name`, such as 
+the `--convert-function inet_ntoa,hex` means that the inet_ntoa to ip column, hex to the 
+name column.
 
 =item --version
 
