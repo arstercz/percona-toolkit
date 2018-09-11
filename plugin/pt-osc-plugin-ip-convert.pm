@@ -20,17 +20,17 @@ sub _concat_sql {
   my ($tbl, $tag, $cols) = @_;
   my $suf = $tag eq 'INSERT' ? 'ins' : $tag eq 'UPDATE' ? 'upd' : 'unk';
   my $trigger_sql = qq{
-CREATE TRIGGER tg_$tbl\_$suf BEFORE $tag ON $tbl
+CREATE TRIGGER `tg_$tbl\_$suf` BEFORE $tag ON `$tbl`
 FOR EACH ROW
 BEGIN
   };
 
   foreach my $col (@$cols) {
-  $trigger_sql .= qq{
-  IF NEW.$col IS NOT NULL AND NEW.$col NOT REGEXP '\\\\.|\\\\:' THEN
-      SET NEW.$col = inet_ntoa(NEW.$col);
-  END IF;
-  };
+    $trigger_sql .= qq{
+     IF NEW.`$col` IS NOT NULL AND NEW.`$col` NOT REGEXP '\\\\.|\\\\:' THEN
+         SET NEW.`$col` = inet_ntoa(NEW.`$col`);
+     END IF;
+    };
   }
 
   $trigger_sql .= qq {
