@@ -9442,9 +9442,6 @@ sub main {
           $select =~ s/$old_def/$new_def/;
       }
    }
-   else {
-      die ts("both of the convert-column and convert-function must have value.");
-   }
 
    # The chunk size is auto-adjusted, so use --chunk-size as
    # the initial value, but then save and update the adjusted
@@ -10597,9 +10594,6 @@ sub create_triggers {
           $insert_trigger =~ s/$old_def/$new_def/;
           $update_trigger =~ s/$old_def/$new_def/;
       }
-   }
-   else {
-      die ts("both the convert-column and convert-function must have value.");
    }
 
    my @triggers = (
